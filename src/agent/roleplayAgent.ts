@@ -8,19 +8,24 @@ import { Contact, Meeting, Commitment, RoleplayMessage, RoleplayEvaluation } fro
 import { ROLEPLAY_SYSTEM_INSTRUCTION, buildRoleplayPrompt, buildEvaluationPrompt } from '../prompts/roleplayPrompts.js';
 
 let genAI: GoogleGenAI | null = null;
-const apiKey = process.env.GEMINI_API_KEY;
 
-if (apiKey && apiKey.trim() !== '' && !apiKey.includes('MY_GEMINI_API_KEY')) {
-  try {
-    genAI = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: { 'User-Agent': 'aistudio-build' }
-      }
-    });
-  } catch (err) {
-    console.warn('[MeetingMind] RoleplayAgent genAI init warning:', err);
+function getGenAI(): GoogleGenAI | null {
+  if (genAI) return genAI;
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey && apiKey.trim() !== '' && !apiKey.includes('MY_GEMINI_API_KEY')) {
+    try {
+      genAI = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: { 'User-Agent': 'aistudio-build' }
+        }
+      });
+      return genAI;
+    } catch (err) {
+      console.warn('[MeetingMind] RoleplayAgent genAI init warning:', err);
+    }
   }
+  return null;
 }
 
 export class RoleplayAgent {
@@ -40,7 +45,8 @@ export class RoleplayAgent {
       .filter((c) => c.status === 'OVERDUE' || c.status === 'PENDING')
       .map((c) => `[${c.status}] ${c.title} (Due: ${c.dueDate})`);
 
-    if (genAI) {
+    const ai = getGenAI();
+    if (ai) {
       try {
         const prompt = buildRoleplayPrompt(
           { name: contact.name, role: contact.role, company: contact.companyName },
@@ -51,7 +57,7 @@ export class RoleplayAgent {
           userMessage
         );
 
-        const response = await genAI.models.generateContent({
+        const response = await ai.models.generateContent({
           model: 'gemini-3.8-flash',
           contents: prompt,
           config: {
@@ -111,10 +117,11 @@ export class RoleplayAgent {
     meetingObjective: string,
     history: RoleplayMessage[]
   ): Promise<RoleplayEvaluation> {
-    if (genAI && history.length >= 2) {
+    const ai = getGenAI();
+    if (ai && history.length >= 2) {
       try {
         const prompt = buildEvaluationPrompt(meetingObjective, history);
-        const response = await genAI.models.generateContent({
+        const response = await ai.models.generateContent({
           model: 'gemini-3.8-flash',
           contents: prompt,
           config: {

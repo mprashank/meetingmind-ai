@@ -8,10 +8,16 @@ interface HeaderProps {
       mode: string;
       label: string;
       isDevelopmentFallback: boolean;
+      credentialsConfigured?: boolean;
+      clientInitialized?: boolean;
+      cloudVerified?: boolean;
+      connected?: boolean;
       totalMemoriesRetained: number;
       endpoint: string;
+      baseUrl?: string;
       bankId: string;
       message: string;
+      cloudError?: string | null;
     };
     gemini: {
       configured: boolean;
@@ -38,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showContactDropdown, setShowContactDropdown] = useState(false);
 
-  const isCloud = status?.hindsight?.mode === 'hindsight_cloud';
+  const isCloud = status?.hindsight?.mode === 'hindsight_cloud' && Boolean(status?.hindsight?.cloudVerified);
 
   return (
     <header className="bg-[#080b14]/90 border-b border-white/[0.08] text-slate-100 sticky top-0 z-40 backdrop-blur-xl">
@@ -120,14 +126,15 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setShowStatusModal(true)}
             className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
               isCloud
-                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/30 hover:bg-emerald-900/40'
-                : 'bg-violet-950/40 text-violet-300 border-violet-500/30 hover:bg-violet-900/40 hover:border-violet-500/50'
+                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/50 shadow-sm shadow-emerald-950/50'
+                : 'bg-slate-900/80 text-slate-300 border-white/[0.12] hover:bg-slate-800/80 hover:border-white/[0.2]'
             }`}
           >
-            <Database className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden lg:inline">{status?.hindsight?.label || 'Hindsight Memory'}</span>
-            <span className="lg:hidden">{isCloud ? 'Cloud' : 'Hindsight'}</span>
-            <span className="px-1.5 py-0.2 rounded bg-black/40 text-[10px] text-cyan-300 font-mono">
+            <span className={`w-2 h-2 rounded-full ${isCloud ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+            <span className="font-semibold">{isCloud ? 'CONNECTED' : 'LOCAL'}</span>
+            <span className="text-slate-500 hidden sm:inline">•</span>
+            <span className="hidden sm:inline">{isCloud ? 'Hindsight Cloud • Vectorize' : 'Development Memory'}</span>
+            <span className="px-1.5 py-0.5 rounded bg-black/50 text-[10px] text-cyan-300 font-mono ml-1">
               {status?.hindsight?.totalMemoriesRetained ?? 8} facts
             </span>
           </button>
@@ -186,11 +193,11 @@ export const Header: React.FC<HeaderProps> = ({
                   <span>{status?.hindsight?.label}</span>
                   {isCloud ? (
                     <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
-                      LIVE CLOUD
+                      LIVE CLOUD (VECTORIZE)
                     </span>
                   ) : (
-                    <span className="text-[10px] bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded border border-violet-500/30">
-                      DEV FALLBACK
+                    <span className="text-[10px] bg-slate-700/60 text-slate-300 px-2 py-0.5 rounded border border-slate-600/50">
+                      LOCAL DEV ENGINE
                     </span>
                   )}
                 </div>

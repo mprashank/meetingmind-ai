@@ -11,6 +11,7 @@
  * 8. PREPARE future meeting with evolved intelligence
  */
 
+import 'dotenv/config';
 import { hindsightService } from '../memory/hindsightClient.js';
 import {
   DEMO_CONTACTS,
@@ -29,10 +30,16 @@ async function runCliDemo() {
   console.log('  MEETINGMIND — PERSISTENT MEMORY MEETING AGENT (CLI DEMO)     ');
   console.log('===============================================================\n');
 
+  // Verify connection to check live cloud vs dev fallback
+  await hindsightService.verifyConnection();
+
   const contact = DEMO_CONTACTS[0]; // Sarah Lin
   const bankId = contact.bankId;
+  const status = hindsightService.getStatus(bankId);
 
-  console.log(`[STATUS] Memory Engine: ${hindsightService.getStatus(bankId).label}`);
+  console.log(`[STATUS] Memory Engine: ${status.label}`);
+  console.log(`[STATUS] Mode: ${status.cloudVerified ? 'LIVE HINDSIGHT CLOUD (Vectorize)' : 'DEVELOPMENT MEMORY FALLBACK'}`);
+  console.log(`[STATUS] Endpoint: ${status.endpoint}`);
   console.log(`[STATUS] Target Contact: ${contact.name} (${contact.role}, Acme Corp)`);
   console.log(`[STATUS] Bank Scope: ${bankId}\n`);
 

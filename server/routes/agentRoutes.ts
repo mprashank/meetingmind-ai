@@ -31,6 +31,7 @@ let commitmentsState: Commitment[] = JSON.parse(JSON.stringify(DEMO_COMMITMENTS)
 
 // Seed default bank on boot
 async function seedDefaultBank() {
+  await hindsightService.verifyConnection();
   const bankId = 'meetingmind-acme-sarah';
   const existing = hindsightService.listMemories(bankId);
   if (existing.length === 0) {
@@ -54,8 +55,11 @@ async function seedDefaultBank() {
 seedDefaultBank().catch(console.error);
 
 // 1. Service Status
-agentRouter.get('/status', (req, res) => {
+agentRouter.get('/status', async (req, res) => {
   const bankId = (req.query.bankId as string) || 'meetingmind-acme-sarah';
+  if (hindsightService.hasValidKey && !hindsightService.isCloudActive) {
+    await hindsightService.verifyConnection();
+  }
   const status = hindsightService.getStatus(bankId);
   res.json({
     hindsight: status,

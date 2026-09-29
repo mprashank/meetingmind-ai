@@ -10,19 +10,24 @@ import { hindsightService } from '../memory/hindsightClient.js';
 import { POST_MEETING_LEARNING_SYSTEM, buildPostMeetingLearningPrompt } from '../prompts/postMeetingPrompts.js';
 
 let genAI: GoogleGenAI | null = null;
-const apiKey = process.env.GEMINI_API_KEY;
 
-if (apiKey && apiKey.trim() !== '' && !apiKey.includes('MY_GEMINI_API_KEY')) {
-  try {
-    genAI = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: { 'User-Agent': 'aistudio-build' }
-      }
-    });
-  } catch (err) {
-    console.warn('[MeetingMind] PostMeetingLearner genAI init warning:', err);
+function getGenAI(): GoogleGenAI | null {
+  if (genAI) return genAI;
+  const key = process.env.GEMINI_API_KEY;
+  if (key && key.trim() !== '' && !key.includes('MY_GEMINI_API_KEY')) {
+    try {
+      genAI = new GoogleGenAI({
+        apiKey: key,
+        httpOptions: {
+          headers: { 'User-Agent': 'aistudio-build' }
+        }
+      });
+      return genAI;
+    } catch (err) {
+      console.warn('[MeetingMind] PostMeetingLearner genAI init warning:', err);
+    }
   }
+  return null;
 }
 
 export class PostMeetingLearner {
@@ -40,8 +45,9 @@ export class PostMeetingLearner {
     console.info(`[PostMeetingLearner] Analyzing completed meeting "${meeting.title}" with ${contact.name}...`);
 
     let extractionData: any = null;
+    const ai = getGenAI();
 
-    if (genAI) {
+    if (ai) {
       try {
         const prompt = buildPostMeetingLearningPrompt(
           meeting.title,
@@ -52,7 +58,7 @@ export class PostMeetingLearner {
           rawNotesOrTranscript
         );
 
-        const response = await genAI.models.generateContent({
+        const response = await ai.models.generateContent({
           model: 'gemini-3.8-flash',
           contents: prompt,
           config: {
@@ -77,6 +83,61 @@ export class PostMeetingLearner {
     // Now retain newly extracted durable units into Hindsight
     const bankId = contact.bankId || `meetingmind_acme_${contact.id}`;
     let retainedCount = 0;
+
+    // Retain meeting summary
+    if (extractionData.learningSummary) {
+      await hindsightService.retain(bankId, `Meeting Summary [${meeting.title} - ${meeting.date}]: ${extractionData.learningSummary}`, {
+        documentId: `summary-${meeting.id}-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        tags: ['post_meeting', 'summary', meeting.id],
+        metadata: {
+          category: 'meeting',
+          groundingType: 'FACT',
+          sourceMeetingId: meeting.id,
+          sourceMeetingTitle: meeting.title,
+          sourceDate: meeting.date,
+          participantId: contact.id,
+          companyId: contact.companyId
+        }
+      });
+      retainedCount++;
+    }
+
+    // Retain new concerns
+    for (const concern of extractionData.newConcerns || []) {
+      await hindsightService.retain(bankId, `Concern: ${concern}`, {
+        documentId: `concern-${Date.now()}-${retainedCount++}`,
+        timestamp: new Date().toISOString(),
+        tags: ['post_meeting', 'concern', meeting.id],
+        metadata: {
+          category: 'concern',
+          groundingType: 'FACT',
+          sourceMeetingId: meeting.id,
+          sourceMeetingTitle: meeting.title,
+          sourceDate: meeting.date,
+          participantId: contact.id,
+          companyId: contact.companyId
+        }
+      });
+    }
+
+    // Retain action items
+    for (const action of extractionData.actionItems || []) {
+      await hindsightService.retain(bankId, `Action Item: ${action}`, {
+        documentId: `action-${Date.now()}-${retainedCount++}`,
+        timestamp: new Date().toISOString(),
+        tags: ['post_meeting', 'action_item', meeting.id],
+        metadata: {
+          category: 'commitment',
+          groundingType: 'COMMITMENT',
+          sourceMeetingId: meeting.id,
+          sourceMeetingTitle: meeting.title,
+          sourceDate: meeting.date,
+          participantId: contact.id,
+          companyId: contact.companyId
+        }
+      });
+    }
 
     // Retain new facts
     for (const fact of extractionData.newFacts || []) {

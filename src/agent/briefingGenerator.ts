@@ -11,21 +11,26 @@ import { RelationshipReflection } from '../memory/memoryReflect.js';
 import { BRIEFING_SYSTEM_INSTRUCTION, buildPrepPrompt, buildGenericPrepPrompt } from '../prompts/meetingPrepPrompts.js';
 
 let genAI: GoogleGenAI | null = null;
-const apiKey = process.env.GEMINI_API_KEY;
 
-if (apiKey && apiKey.trim() !== '' && !apiKey.includes('MY_GEMINI_API_KEY')) {
-  try {
-    genAI = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build'
+function getGenAI(): GoogleGenAI | null {
+  if (genAI) return genAI;
+  const key = process.env.GEMINI_API_KEY;
+  if (key && key.trim() !== '' && !key.includes('MY_GEMINI_API_KEY')) {
+    try {
+      genAI = new GoogleGenAI({
+        apiKey: key,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build'
+          }
         }
-      }
-    });
-  } catch (err) {
-    console.warn('[MeetingMind] Failed to initialize GoogleGenAI client:', err);
+      });
+      return genAI;
+    } catch (err) {
+      console.warn('[MeetingMind] Failed to initialize GoogleGenAI client:', err);
+    }
   }
+  return null;
 }
 
 export async function generateMeetingBrief(
@@ -36,9 +41,10 @@ export async function generateMeetingBrief(
   commitments: Commitment[]
 ): Promise<MeetingBrief> {
   const openCommitments = commitments.filter((c) => c.status === 'PENDING' || c.status === 'OVERDUE');
+  const ai = getGenAI();
 
   // Attempt Gemini API generation
-  if (genAI) {
+  if (ai) {
     try {
       const prompt = buildPrepPrompt(
         {
@@ -71,7 +77,7 @@ export async function generateMeetingBrief(
         }))
       );
 
-      const response = await genAI.models.generateContent({
+      const response = await ai.models.generateContent({
         model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
