@@ -1,0 +1,6 @@
+{
+  "name": "MeetingMind",
+  "description": "AI Meeting Intelligence & Preparation Agent powered by Hindsight persistent memory.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
